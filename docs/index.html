@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>楽天領収書一括ダウンローダー | 公式PDF・CSV自動保存ツール</title>
+  <meta name="description" content="楽天市場の購入履歴から公式領収書PDFを一括保存＆自動リネームするChrome拡張機能。宛名自動入力・期間指定・CSV出力に対応し、確定申告や経理作業を効率化します。" />
+  <meta property="og:title" content="楽天領収書一括ダウンローダー | 公式PDF・CSV自動保存ツール" />
+  <meta property="og:description" content="楽天市場の購入履歴から領収書をワンクリックで一括PDF保存＆自動リネーム。宛名自動入力・期間指定・CSV出力対応。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://fk7ryu.github.io/rakuten-invoice-pro-jp/" />
+  <meta property="og:image" content="https://fk7ryu.github.io/rakuten-invoice-pro-jp/images/ogp.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="楽天領収書一括ダウンローダー" />
+  <meta name="twitter:description" content="確定申告・経理作業をワンクリックで自動化。楽天市場の領収書PDF一括保存＆自動リネーム。" />
+  <meta name="twitter:image" content="https://fk7ryu.github.io/rakuten-invoice-pro-jp/images/ogp.jpg" />
+  <style>
+    :root {
+      --brand: #BF0000;
+      --dark: #111827;
+      --text: #374151;
+      --bg: #f9fafb;
+    }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.7;
+    }
+    header {
+      background: var(--dark);
+      color: #fff;
+      padding: 52px 20px;
+      text-align: center;
+    }
+    header h1 {
+      margin: 0 0 12px;
+      font-size: 30px;
+    }
+    header p {
+      margin: 0 auto 22px;
+      max-width: 640px;
+      color: #d1d5db;
+      font-size: 15px;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--brand);
+      color: #fff;
+      font-weight: bold;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+    main {
+      max-width: 860px;
+      margin: 32px auto;
+      padding: 0 20px;
+    }
+    section {
+      background: #fff;
+      border-radius: 10px;
+      padding: 28px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 20px;
+      color: var(--dark);
+      border-left: 4px solid var(--brand);
+      padding-left: 10px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .box {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 16px;
+      background: #fafafa;
+    }
+    .box h3 {
+      margin: 0 0 8px;
+      font-size: 15px;
+      color: var(--dark);
+    }
+    .price {
+      font-size: 22px;
+      font-weight: bold;
+      color: var(--dark);
+      margin: 8px 0;
+    }
+    details.faq-item {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 12px 0;
+    }
+    details.faq-item summary {
+      font-weight: bold;
+      color: var(--dark);
+      cursor: pointer;
+    }
+    details.faq-item p {
+      margin: 8px 0 0;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 10px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      width: 30%;
+      color: var(--dark);
+    }
+    footer {
+      text-align: center;
+      padding: 24px 20px 40px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+    a {
+      color: #BF0000;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="badge">Google Chrome 拡張機能</div>
+    <h1>楽天領収書一括ダウンローダー</h1>
+    <p>確定申告・月次経理・経費精算のために、楽天市場の購入履歴から公式領収書PDFを一括保存＆自動リネームする業務効率化ツールです。</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>主な機能</h2>
+      <div class="grid">
+        <div class="box">
+          <h3>楽天公式領収書をPDF一括保存</h3>
+          <p>期間指定やチェックボックスで選んだ注文の注文詳細から「発行する」を自動実行し、公式の領収書PDFを一括ダウンロードします（宛名自動入力にも対応）。</p>
+        </div>
+        <div class="box">
+          <h3>経理ソフト向け自動リネーム</h3>
+          <p>「20261117_5100円_Rakuten_注文番号.pdf」のように日付・金額・注文番号で自動整形。年/月別フォルダ分けや変数カスタマイズにも対応しています。</p>
+        </div>
+        <div class="box">
+          <h3>注文一覧CSV出力＆重複スキップ</h3>
+          <p>ダウンロードした全件の注文日・注文番号・金額・商品名をまとめたUTF-8（BOM付き）CSVを同時出力。取得済み注文のスキップ機能も搭載しています。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>料金プラン</h2>
+      <div class="grid">
+        <div class="box">
+          <h3>無料プラン</h3>
+          <div class="price">0円</div>
+          <p>月10件までPDF一括保存が可能（毎月自動リセット）。まずは動作をお試しいただけます。</p>
+        </div>
+        <div class="box">
+          <h3>Proプラン（買い切り / 月額）</h3>
+          <div class="price">2,980円（買い切り） / 月額490円</div>
+          <p>PDF一括保存が無制限になり、注文一覧CSVの同時出力機能もすべてご利用いただけます。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>よくある質問（FAQ）</h2>
+      <details class="faq-item">
+        <summary>購入履歴や領収書のデータが外部サーバーに送信されることはありますか？</summary>
+        <p>いいえ、一切ありません。すべての処理はお使いのChromeブラウザ内（ローカル環境）のみで完結します。決済とライセンス判定のみExtensionPay（Stripe）を利用します。</p>
+      </details>
+      <details class="faq-item">
+        <summary>領収書が未発行の注文でも取得できますか？</summary>
+        <p>はい。詳細設定の「領収書の宛名」を設定しておくと、未発行の注文でも自動で宛名を入力して発行・PDF保存を行います。</p>
+      </details>
+      <details class="faq-item">
+        <summary>Amazon版もありますか？</summary>
+        <p>はい。<a href="https://fk7ryu.github.io/amazon-invoice-pro-jp/" target="_blank" rel="noopener">Amazon領収書一括ダウンローダー</a> もあわせて公開しています。</p>
+      </details>
+    </section>
+
+    <section>
+      <h2>特定商取引法に基づく表記</h2>
+      <table>
+        <tr>
+          <th>サービス名</th>
+          <td>楽天領収書一括ダウンローダー（Google Chrome拡張機能）</td>
+        </tr>
+        <tr>
+          <th>販売価格</th>
+          <td>Proプラン：買い切り 2,980円（税込） / 月額プラン 490円（税込）</td>
+        </tr>
+        <tr>
+          <th>お支払い方法</th>
+          <td>クレジットカード決済（ExtensionPay / Stripe経由）</td>
+        </tr>
+        <tr>
+          <th>引渡時期</th>
+          <td>決済完了後、即時にProプラン機能が有効化されます。</td>
+        </tr>
+        <tr>
+          <th>返品・キャンセル</th>
+          <td>デジタルコンテンツの性質上、決済完了後の返金には原則対応しておりません。月額プランはStripeカスタマーポータルよりいつでも解約可能です。</td>
+        </tr>
+        <tr>
+          <th>運営者・連絡先</th>
+          <td>連絡先メールアドレス: <a href="mailto:fk7ryu@gmail.com">fk7ryu@gmail.com</a><br />※ 所在地・電話番号については、ご請求があった場合遅滞なく開示いたします。</td>
+        </tr>
+      </table>
+    </section>
+  </main>
+
+  <footer>
+    <p><a href="./privacy.html">プライバシーポリシー</a></p>
+    <p>&copy; 2026 楽天領収書一括ダウンローダー</p>
+  </footer>
+</body>
+</html>

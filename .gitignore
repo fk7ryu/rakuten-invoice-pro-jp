@@ -1,0 +1,4 @@
+*.zip
+store_assets/
+.DS_Store
+Thumbs.db

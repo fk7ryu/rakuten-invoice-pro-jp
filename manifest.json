@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "楽天領収書一括ダウンローダー",
+  "version": "1.0.0",
+  "description": "楽天市場の購入履歴から領収書・注文明細を複数ページ巡回してPDF一括保存＆CSV出力します",
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "128": "icons/icon128.png"
+    }
+  },
+  "permissions": [
+    "downloads",
+    "storage",
+    "tabs",
+    "debugger",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://order.my.rakuten.co.jp/*",
+    "https://*.rakuten.co.jp/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://order.my.rakuten.co.jp/*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}
