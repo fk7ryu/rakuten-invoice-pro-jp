@@ -99,19 +99,29 @@
   }
 
   async function loadSettings() {
+    if (!isContextValid()) {
+      return { settings: { ...DEFAULT_SETTINGS }, downloadedOrderIds: [], panelPos: null };
+    }
     return new Promise((resolve) => {
-      chrome.storage.local.get(['rktSettings', 'downloadedOrderIds', 'panelPos'], (res) => {
-        resolve({
-          settings: { ...DEFAULT_SETTINGS, ...(res.rktSettings || {}) },
-          downloadedOrderIds: Array.isArray(res.downloadedOrderIds) ? res.downloadedOrderIds : [],
-          panelPos: res.panelPos || null
+      try {
+        chrome.storage.local.get(['rktSettings', 'downloadedOrderIds', 'panelPos'], (res) => {
+          resolve({
+            settings: { ...DEFAULT_SETTINGS, ...((res && res.rktSettings) || {}) },
+            downloadedOrderIds: res && Array.isArray(res.downloadedOrderIds) ? res.downloadedOrderIds : [],
+            panelPos: (res && res.panelPos) || null
+          });
         });
-      });
+      } catch (_) {
+        resolve({ settings: { ...DEFAULT_SETTINGS }, downloadedOrderIds: [], panelPos: null });
+      }
     });
   }
 
   function saveSettings(settings) {
-    chrome.storage.local.set({ rktSettings: settings });
+    if (!isContextValid()) return;
+    try {
+      chrome.storage.local.set({ rktSettings: settings });
+    } catch (_) {}
   }
 
   function sanitizeFilePart(str) {
@@ -809,6 +819,7 @@
     const { downloadedOrderIds } = await loadSettings();
     const initialState = {
       isScanning: true,
+      startedAt: Date.now(),
       currentPage: 1,
       maxPages: parseInt(document.getElementById('rkt-fetch-depth').value, 10),
       dateFrom: document.getElementById('rkt-date-from').value,
@@ -931,8 +942,14 @@
   injectControlUI().then(() => {
     if (!isContextValid()) return;
     chrome.storage.local.get(['rktScanState'], (res) => {
-      if (res && res.rktScanState && res.rktScanState.isScanning) {
-        setTimeout(() => runScanStep(res.rktScanState), 600);
+      const state = res && res.rktScanState;
+      if (state && state.isScanning) {
+        const isFresh = !state.startedAt || Date.now() - state.startedAt < 5 * 60 * 1000;
+        if (isFresh) {
+          setTimeout(() => runScanStep(state), 600);
+        } else {
+          chrome.storage.local.remove('rktScanState');
+        }
       }
     });
   });

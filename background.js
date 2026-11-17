@@ -449,9 +449,10 @@ async function printTabToPdf(tabId, item, receiptName) {
       chrome.debugger.onEvent.addListener(netListener);
 
       try {
-        // btn.focus() + btn.click() でクリックを実行
+        // btn.focus() + btn.click() でクリックを実行（前回のキャプチャURLはリセット）
         await chrome.debugger.sendCommand({ tabId }, 'Runtime.evaluate', {
           expression: `(() => {
+            window.__capturedOpenUrl = null;
             const allBtns = Array.from(document.querySelectorAll('button, input[type="button"], input[type="submit"], [role="button"]'));
             const btn =
               allBtns.find((el) => {
@@ -602,6 +603,8 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
       });
     };
 
+    let sessionExpiredMsg = null;
+
     for (let i = 0; i < items.length; i++) {
       if (isCancelled) break;
 
@@ -624,8 +627,8 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
         }
       } catch (err) {
         if (err.message.includes('ログインセッション')) {
-          notifyProgress(sourceTabId, i, items.length, err.message, true);
-          return;
+          sessionExpiredMsg = err.message;
+          break;
         }
       }
 
@@ -644,14 +647,15 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
           } catch (err) {
             console.error(`[PDF生成失敗 attempt=${attempt}] ${item.orderId}:`, err);
             if (err.message.includes('ログインセッション')) {
-              notifyProgress(sourceTabId, i, items.length, err.message, true);
-              return;
+              sessionExpiredMsg = err.message;
+              break;
             }
             if (attempt < 2) {
               await new Promise((r) => setTimeout(r, 1200));
             }
           }
         }
+        if (sessionExpiredMsg) break;
       }
 
       if (saved) {
@@ -694,11 +698,13 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
       await downloadDataUrl(csvDataUrl, `楽天領収書/${today}_楽天領収書一覧.csv`);
     }
 
-    const finalMsg = isCancelled
-      ? `中止しました (${successCount}/${items.length}件 保存済み)`
-      : failedItems.length > 0
-        ? `完了: ${successCount}/${items.length}件保存（失敗: ${failedItems.length}件）`
-        : `完了: ${successCount}/${items.length}件のPDFを保存しました`;
+    const finalMsg = sessionExpiredMsg
+      ? `${sessionExpiredMsg} (${successCount}件保存済み)`
+      : isCancelled
+        ? `中止しました (${successCount}/${items.length}件 保存済み)`
+        : failedItems.length > 0
+          ? `完了: ${successCount}/${items.length}件保存（失敗: ${failedItems.length}件）`
+          : `完了: ${successCount}/${items.length}件のPDFを保存しました`;
 
     notifyProgress(sourceTabId, items.length, items.length, finalMsg, true, {
       historyCount,
