@@ -1,7 +1,7 @@
 importScripts('ExtPay.js');
 
 // ExtensionPayで発行した楽天版の拡張機能ID（スラッグ）を設定してください
-const EXTPAY_EXTENSION_ID = 'YOUR_RAKUTEN_EXTPAY_ID';
+const EXTPAY_EXTENSION_ID = 'rakuten-invoice-pro-jp';
 const FREE_MONTHLY_LIMIT = 10;
 
 let isCancelled = false;
