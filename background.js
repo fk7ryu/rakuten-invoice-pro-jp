@@ -1,8 +1,15 @@
-importScripts('ExtPay.js');
+importScripts('ExtPay.js', 'zip_builder.js', 'csv_formatter.js');
 
 // ExtensionPayで発行した楽天版の拡張機能ID（スラッグ）を設定してください
 const EXTPAY_EXTENSION_ID = 'rakuten-invoice-pro-jp';
 const FREE_MONTHLY_LIMIT = 10;
+
+// 初回インストール時に使い方ガイドを自動で開く
+chrome.runtime.onInstalled.addListener((details) => {
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
+  }
+});
 
 let isCancelled = false;
 let isRunning = false;
@@ -146,8 +153,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'START_DOWNLOAD') {
     if (isRunning) return;
     const sourceTabId = sender.tab ? sender.tab.id : null;
-    const { items, exportCsv, receiptName } = message.payload;
-    processPdfQueue(items, exportCsv, sourceTabId, receiptName || '');
+    const { items, exportCsv, receiptName, csvFormat, zipOutput } = message.payload;
+    processPdfQueue(items, exportCsv, sourceTabId, {
+      receiptName: receiptName || '',
+      csvFormat: csvFormat || 'standard',
+      zipOutput: Boolean(zipOutput)
+    });
   } else if (message.action === 'CANCEL_DOWNLOAD') {
     isCancelled = true;
   }
@@ -222,13 +233,26 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-function encodeUtf8BomBase64(text) {
+function base64ToUint8Array(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function encodeUtf8BomBytes(text) {
   const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
   const body = new TextEncoder().encode(text);
   const merged = new Uint8Array(bom.length + body.length);
   merged.set(bom, 0);
   merged.set(body, bom.length);
-  return arrayBufferToBase64(merged.buffer);
+  return merged;
+}
+
+function encodeUtf8BomBase64(text) {
+  return arrayBufferToBase64(encodeUtf8BomBytes(text).buffer);
 }
 
 function escapeCsv(val) {
@@ -252,8 +276,8 @@ async function recordDownloadedOrderIds(newIds) {
   });
 }
 
-// まずURLが直接PDFを返すか確認し、PDFならそのまま保存
-async function tryDownloadDirectPdf(url, filename) {
+// まずURLが直接PDFを返すか確認し、PDFならそのまま保存（zipEntries指定時はZIP格納）
+async function tryDownloadDirectPdf(url, filename, zipEntries = null) {
   const res = await fetch(url, { credentials: 'include' });
   if (isRakutenLoginUrl(res.url)) {
     throw new Error('楽天会員のログインセッションが切れました。再ログインしてください。');
@@ -266,13 +290,20 @@ async function tryDownloadDirectPdf(url, filename) {
     return false;
   }
   const buffer = await res.arrayBuffer();
+  if (zipEntries) {
+    zipEntries.push({
+      name: filename.replace(/^楽天領収書\//, ''),
+      data: new Uint8Array(buffer)
+    });
+    return true;
+  }
   const base64 = arrayBufferToBase64(buffer);
   await downloadDataUrl(`data:application/pdf;base64,${base64}`, filename);
   return true;
 }
 
-// タブを指定してPDF生成・保存
-async function renderTabAsPdf(tabId, filename) {
+// タブを指定してPDF生成・保存（zipEntries指定時はZIP格納）
+async function renderTabAsPdf(tabId, filename, zipEntries = null) {
   const pdfResult = await chrome.debugger.sendCommand({ tabId }, 'Page.printToPDF', {
     printBackground: true,
     preferCSSPageSize: true,
@@ -283,6 +314,13 @@ async function renderTabAsPdf(tabId, filename) {
     marginLeft: 0.4,
     marginRight: 0.4
   });
+  if (zipEntries) {
+    zipEntries.push({
+      name: filename.replace(/^楽天領収書\//, ''),
+      data: base64ToUint8Array(pdfResult.data)
+    });
+    return;
+  }
   const pdfDataUrl = `data:application/pdf;base64,${pdfResult.data}`;
   await downloadDataUrl(pdfDataUrl, filename);
 }
@@ -327,7 +365,7 @@ function waitForDownloadStart(timeoutMs = 3000) {
 }
 
 // タブを使って注文詳細ページから領収書を探し出しPDFを生成・保存
-async function printTabToPdf(tabId, item, receiptName) {
+async function printTabToPdf(tabId, item, receiptName, zipEntries = null) {
   const loadPromise = waitForTabComplete(tabId);
   await chrome.tabs.update(tabId, { url: item.url });
   const updatedTab = await loadPromise;
@@ -411,7 +449,7 @@ async function printTabToPdf(tabId, item, receiptName) {
     }
 
     if (found && found.type === 'url' && found.url) {
-      const directSaved = await tryDownloadDirectPdf(found.url, item.filename);
+      const directSaved = await tryDownloadDirectPdf(found.url, item.filename, zipEntries);
       if (directSaved) {
         item.pdfType = '楽天公式PDF';
         item.url = found.url;
@@ -421,7 +459,7 @@ async function printTabToPdf(tabId, item, receiptName) {
       await chrome.tabs.update(tabId, { url: found.url });
       await receiptLoad;
       await new Promise((r) => setTimeout(r, 900));
-      await renderTabAsPdf(tabId, item.filename);
+      await renderTabAsPdf(tabId, item.filename, zipEntries);
       item.pdfType = '領収書ページPDF';
       item.url = found.url;
       return true;
@@ -479,7 +517,7 @@ async function printTabToPdf(tabId, item, receiptName) {
         }
 
         if (interceptedPdfUrl) {
-          const directSaved = await tryDownloadDirectPdf(interceptedPdfUrl, item.filename).catch(() => false);
+          const directSaved = await tryDownloadDirectPdf(interceptedPdfUrl, item.filename, zipEntries).catch(() => false);
           if (directSaved) {
             item.pdfType = '楽天公式PDF(通信取得)';
             item.url = interceptedPdfUrl;
@@ -493,7 +531,7 @@ async function printTabToPdf(tabId, item, receiptName) {
             await new Promise((r) => setTimeout(r, 900));
             const targetUrl = finishedTab.url || newTab.pendingUrl || '';
             if (targetUrl && targetUrl !== 'about:blank') {
-              const directSaved = await tryDownloadDirectPdf(targetUrl, item.filename).catch(() => false);
+              const directSaved = await tryDownloadDirectPdf(targetUrl, item.filename, zipEntries).catch(() => false);
               if (directSaved) {
                 item.pdfType = '楽天公式PDF';
                 item.url = targetUrl;
@@ -502,7 +540,7 @@ async function printTabToPdf(tabId, item, receiptName) {
             }
             await chrome.debugger.attach({ tabId: newTab.id }, '1.3');
             await chrome.debugger.sendCommand({ tabId: newTab.id }, 'Page.enable');
-            await renderTabAsPdf(newTab.id, item.filename);
+            await renderTabAsPdf(newTab.id, item.filename, zipEntries);
             await chrome.debugger.detach({ tabId: newTab.id }).catch(() => {});
             item.pdfType = '領収書ページPDF';
             if (targetUrl) item.url = targetUrl;
@@ -521,7 +559,7 @@ async function printTabToPdf(tabId, item, receiptName) {
 
         if (capturedUrl) {
           const absUrl = new URL(capturedUrl, updatedTab.url).href;
-          const directSaved = await tryDownloadDirectPdf(absUrl, item.filename).catch(() => false);
+          const directSaved = await tryDownloadDirectPdf(absUrl, item.filename, zipEntries).catch(() => false);
           if (directSaved) {
             item.pdfType = '楽天公式PDF';
             item.url = absUrl;
@@ -531,14 +569,14 @@ async function printTabToPdf(tabId, item, receiptName) {
           await chrome.tabs.update(tabId, { url: absUrl });
           await receiptLoad;
           await new Promise((r) => setTimeout(r, 900));
-          await renderTabAsPdf(tabId, item.filename);
+          await renderTabAsPdf(tabId, item.filename, zipEntries);
           item.pdfType = '領収書ページPDF';
           item.url = absUrl;
           return true;
         }
 
         await new Promise((r) => setTimeout(r, 1000));
-        await renderTabAsPdf(tabId, item.filename);
+        await renderTabAsPdf(tabId, item.filename, zipEntries);
         item.pdfType = '領収書PDF(未遷移)';
         return true;
       } finally {
@@ -551,13 +589,17 @@ async function printTabToPdf(tabId, item, receiptName) {
   }
 
   // 領収書ボタンが見つからない場合は注文詳細ページをPDF化
-  await renderTabAsPdf(tabId, item.filename);
+  await renderTabAsPdf(tabId, item.filename, zipEntries);
   item.pdfType = '注文詳細PDF(ボタンなし)';
   return true;
 }
 
 // PDF一括生成メイン処理
-async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '') {
+async function processPdfQueue(rawItems, exportCsv, sourceTabId, options = {}) {
+  const receiptName = options.receiptName || '';
+  const csvFormat = options.csvFormat || 'standard';
+  const zipOutput = Boolean(options.zipOutput);
+
   isRunning = true;
   isCancelled = false;
 
@@ -566,6 +608,7 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
   let successCount = 0;
   const completedItems = [];
   const failedItems = [];
+  const zipEntries = zipOutput ? [] : null;
 
   try {
     const license = await getLicenseStatus();
@@ -620,7 +663,7 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
 
       // 1. 領収書URLが直接PDFを返すか試行
       try {
-        const directSaved = await tryDownloadDirectPdf(item.url, item.filename);
+        const directSaved = await tryDownloadDirectPdf(item.url, item.filename, zipEntries);
         if (directSaved) {
           saved = true;
           item.pdfType = '楽天公式PDF';
@@ -638,7 +681,7 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
         for (let attempt = 1; attempt <= 2; attempt++) {
           if (isCancelled) break;
           try {
-            const ok = await printTabToPdf(workerTab.id, item, receiptName);
+            const ok = await printTabToPdf(workerTab.id, item, receiptName, zipEntries);
             if (ok) {
               saved = true;
               if (!item.pdfType) item.pdfType = '印刷生成PDF';
@@ -677,25 +720,27 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
     const historyCount = await recordDownloadedOrderIds(completedItems.map((it) => it.orderId));
     const latestLicense = await getLicenseStatus();
 
-    // ProプランのみCSVサマリー出力
-    if (!isCancelled && allowCsv && completedItems.length > 0) {
-      const header = ['注文日', '注文番号', '金額(円)', 'ショップ/商品名', 'PDF種別', '保存ファイル名', '領収書URL'];
-      const rows = completedItems.map((it) => [
-        it.dateIso || it.date,
-        it.orderId,
-        it.priceNum,
-        it.title,
-        it.pdfType || '',
-        it.filename,
-        it.url
-      ]);
-      const csvText = [header, ...rows]
-        .map((row) => row.map(escapeCsv).join(','))
-        .join('\r\n');
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
 
-      const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      const csvDataUrl = `data:text/csv;charset=utf-8;base64,${encodeUtf8BomBase64(csvText)}`;
-      await downloadDataUrl(csvDataUrl, `楽天領収書/${today}_楽天領収書一覧.csv`);
+    // Proプランのみ会計ソフト別CSV生成
+    let csvInfo = null;
+    if (!isCancelled && allowCsv && completedItems.length > 0) {
+      csvInfo = buildFormattedCsv(completedItems, csvFormat, '楽天市場');
+    }
+
+    if (zipOutput && zipEntries && zipEntries.length > 0) {
+      if (csvInfo) {
+        zipEntries.push({
+          name: `${today}_楽天領収書_${csvInfo.fileSuffix}.csv`,
+          data: encodeUtf8BomBytes(csvInfo.csvText)
+        });
+      }
+      const zipBytes = buildZipArchive(zipEntries);
+      const zipDataUrl = `data:application/zip;base64,${arrayBufferToBase64(zipBytes.buffer)}`;
+      await downloadDataUrl(zipDataUrl, `楽天領収書/${today}_楽天領収書まとめ.zip`);
+    } else if (csvInfo) {
+      const csvDataUrl = `data:text/csv;charset=utf-8;base64,${encodeUtf8BomBase64(csvInfo.csvText)}`;
+      await downloadDataUrl(csvDataUrl, `楽天領収書/${today}_楽天領収書_${csvInfo.fileSuffix}.csv`);
     }
 
     const finalMsg = sessionExpiredMsg
@@ -704,7 +749,9 @@ async function processPdfQueue(rawItems, exportCsv, sourceTabId, receiptName = '
         ? `中止しました (${successCount}/${items.length}件 保存済み)`
         : failedItems.length > 0
           ? `完了: ${successCount}/${items.length}件保存（失敗: ${failedItems.length}件）`
-          : `完了: ${successCount}/${items.length}件のPDFを保存しました`;
+          : zipOutput && zipEntries && zipEntries.length > 0
+            ? `完了: ${successCount}件の保存が完了しました（ZIP出力あり）`
+            : `完了: ${successCount}/${items.length}件のPDFを保存しました`;
 
     notifyProgress(sourceTabId, items.length, items.length, finalMsg, true, {
       historyCount,

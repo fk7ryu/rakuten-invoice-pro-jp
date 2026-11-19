@@ -1,14 +1,18 @@
 {
   "manifest_version": 3,
   "name": "楽天領収書一括ダウンローダー",
-  "version": "1.0.0",
-  "description": "楽天市場の購入履歴から領収書・注文明細を複数ページ巡回してPDF一括保存＆CSV出力します",
+  "version": "1.1.0",
+  "description": "楽天市場の購入履歴から公式領収書を宛名自動入力でPDF・ZIP一括保存＆会計ソフト別CSV(freee/MF/弥生)出力します",
   "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },

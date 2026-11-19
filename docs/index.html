@@ -3,24 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>楽天領収書一括ダウンローダー | 公式PDF・CSV自動保存ツール</title>
-  <meta name="description" content="楽天市場の購入履歴から公式領収書PDFを一括保存＆自動リネームするChrome拡張機能。宛名自動入力・期間指定・CSV出力に対応し、確定申告や経理作業を効率化します。" />
-  <meta property="og:title" content="楽天領収書一括ダウンローダー | 公式PDF・CSV自動保存ツール" />
-  <meta property="og:description" content="楽天市場の購入履歴から領収書をワンクリックで一括PDF保存＆自動リネーム。宛名自動入力・期間指定・CSV出力対応。" />
+  <title>楽天領収書一括ダウンローダー | 公式PDF・ZIP・会計ソフトCSV対応</title>
+  <link rel="icon" type="image/png" href="./images/icon.png" />
+  <meta name="description" content="楽天市場の購入履歴から公式領収書PDFを一括保存＆自動リネーム。宛名自動入力、ZIP一括保存、freee・マネーフォワード・弥生会計向けCSV出力に対応したChrome拡張機能です。" />
+  <meta property="og:title" content="楽天領収書一括ダウンローダー | 公式PDF・ZIP・会計ソフトCSV対応" />
+  <meta property="og:description" content="楽天市場の購入履歴から宛名自動入力で公式領収書をPDF/ZIP一括保存＆自動リネーム。freee・MF・弥生CSV出力対応。" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://fk7ryu.github.io/rakuten-invoice-pro-jp/" />
   <meta property="og:image" content="https://fk7ryu.github.io/rakuten-invoice-pro-jp/images/ogp.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="楽天領収書一括ダウンローダー" />
-  <meta name="twitter:description" content="確定申告・経理作業をワンクリックで自動化。楽天市場の領収書PDF一括保存＆自動リネーム。" />
+  <meta name="twitter:description" content="確定申告・経理作業をワンクリックで自動化。楽天市場の領収書PDF・ZIP一括保存＆freee/MF/弥生CSV対応。" />
   <meta name="twitter:image" content="https://fk7ryu.github.io/rakuten-invoice-pro-jp/images/ogp.jpg" />
   <style>
-    :root {
-      --brand: #BF0000;
-      --dark: #111827;
-      --text: #374151;
-      --bg: #f9fafb;
-    }
+    :root { --brand: #BF0000; --dark: #161E2E; --text: #334155; --bg: #f8fafc; }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: "Segoe UI", "Hiragino Sans", "Yu Gothic UI", sans-serif;
@@ -28,135 +25,205 @@
       background: var(--bg);
       line-height: 1.7;
     }
-    header {
-      background: var(--dark);
+    .nav {
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+      padding: 10px 20px;
+    }
+    .nav-inner {
+      max-width: 920px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 13px;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       color: #fff;
-      padding: 52px 20px;
+      font-weight: bold;
+      text-decoration: none;
+    }
+    .nav-brand img { width: 24px; height: 24px; border-radius: 5px; }
+    .nav-links { display: flex; gap: 14px; align-items: center; }
+    .nav-links a { color: #cbd5e1; text-decoration: none; }
+    .nav-links a:hover { color: #fff; }
+    .nav-links a.active { color: #ff5252; font-weight: bold; }
+    header {
+      background: linear-gradient(135deg, #161E2E 0%, #1e293b 100%);
+      color: #fff;
+      padding: 56px 20px;
       text-align: center;
+      border-bottom: 4px solid var(--brand);
     }
-    header h1 {
-      margin: 0 0 12px;
-      font-size: 30px;
+    .hero-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 16px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+      margin-bottom: 16px;
     }
-    header p {
-      margin: 0 auto 22px;
-      max-width: 640px;
-      color: #d1d5db;
-      font-size: 15px;
-    }
+    header h1 { margin: 0 0 12px; font-size: 30px; }
+    header p { margin: 0 auto 24px; max-width: 640px; color: #cbd5e1; font-size: 15px; }
     .badge {
       display: inline-block;
       background: var(--brand);
       color: #fff;
       font-weight: bold;
       font-size: 12px;
-      padding: 4px 10px;
+      padding: 4px 12px;
       border-radius: 999px;
       margin-bottom: 14px;
     }
-    main {
-      max-width: 860px;
-      margin: 32px auto;
-      padding: 0 20px;
-    }
+    .cta-note { margin-top: 10px; font-size: 12.5px; color: #94a3b8; }
+    main { max-width: 920px; margin: 32px auto; padding: 0 20px; }
     section {
       background: #fff;
-      border-radius: 10px;
+      border-radius: 12px;
       padding: 28px;
       margin-bottom: 24px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05);
+      border: 1px solid #e2e8f0;
     }
     h2 {
       margin-top: 0;
       font-size: 20px;
       color: var(--dark);
       border-left: 4px solid var(--brand);
-      padding-left: 10px;
+      padding-left: 12px;
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 16px;
       margin-top: 16px;
     }
     .box {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 16px;
-      background: #fafafa;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 18px;
+      background: #f8fafc;
     }
-    .box h3 {
-      margin: 0 0 8px;
-      font-size: 15px;
-      color: var(--dark);
-    }
-    .price {
-      font-size: 22px;
+    .box h3 { margin: 0 0 8px; font-size: 15.5px; color: var(--dark); }
+    .box p { margin: 0; font-size: 13.5px; }
+    .step-badge {
+      display: inline-block;
+      background: var(--brand);
+      color: #fff;
       font-weight: bold;
-      color: var(--dark);
-      margin: 8px 0;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 8px;
     }
-    details.faq-item {
-      border-bottom: 1px solid #e5e7eb;
-      padding: 12px 0;
-    }
-    details.faq-item summary {
-      font-weight: bold;
-      color: var(--dark);
-      cursor: pointer;
-    }
-    details.faq-item p {
-      margin: 8px 0 0;
-      font-size: 14px;
-    }
-    table {
+    .price-card.pro { border: 2px solid var(--brand); background: #fff5f5; }
+    .price { font-size: 22px; font-weight: bold; color: var(--dark); margin: 8px 0; }
+    .screenshot-img {
       width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      display: block;
+      margin-top: 14px;
     }
-    th, td {
-      border-bottom: 1px solid #e5e7eb;
-      padding: 10px 8px;
-      text-align: left;
-      vertical-align: top;
+    .sibling-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 18px 22px;
     }
-    th {
-      width: 30%;
-      color: var(--dark);
+    .sibling-btn {
+      background: #FF9900;
+      color: #111;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 10px 18px;
+      border-radius: 7px;
+      font-size: 13.5px;
     }
-    footer {
-      text-align: center;
-      padding: 24px 20px 40px;
-      font-size: 13px;
-      color: #6b7280;
-    }
-    a {
-      color: #BF0000;
-    }
+    details.faq-item { border-bottom: 1px solid #e2e8f0; padding: 12px 0; }
+    details.faq-item summary { font-weight: bold; color: var(--dark); cursor: pointer; }
+    details.faq-item p { margin: 8px 0 0; font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { width: 30%; color: var(--dark); }
+    footer { text-align: center; padding: 24px 20px 44px; font-size: 13px; color: #64748b; }
+    a { color: #BF0000; }
   </style>
 </head>
 <body>
+  <nav class="nav">
+    <div class="nav-inner">
+      <a class="nav-brand" href="./">
+        <img src="./images/icon.png" alt="icon" />
+        <span>領収書一括ダウンローダー シリーズ</span>
+      </a>
+      <div class="nav-links">
+        <a href="https://fk7ryu.github.io/amazon-invoice-pro-jp/">Amazon版</a>
+        <a class="active" href="https://fk7ryu.github.io/rakuten-invoice-pro-jp/">楽天市場版</a>
+        <a href="mailto:fk7ryu@gmail.com?subject=%E3%80%90%E6%A5%BD%E5%A4%A9%E9%A0%98%E5%8F%8E%E6%9B%B8%E3%83%84%E3%83%BC%E3%83%AB%E3%80%91%E3%81%8A%E5%95%8F%E3%81%84%E5%90%88%E3%82%8F%E3%81%9B">お問い合わせ</a>
+      </div>
+    </div>
+  </nav>
+
   <header>
-    <div class="badge">Google Chrome 拡張機能</div>
+    <img class="hero-icon" src="./images/icon.png" alt="楽天領収書一括ダウンローダー アイコン" /><br />
+    <div class="badge">Google Chrome 拡張機能 / v1.1</div>
     <h1>楽天領収書一括ダウンローダー</h1>
-    <p>確定申告・月次経理・経費精算のために、楽天市場の購入履歴から公式領収書PDFを一括保存＆自動リネームする業務効率化ツールです。</p>
+    <p>確定申告・月次経理・経費精算のために、楽天市場の購入履歴から宛名自動入力＋公式領収書PDF＆ZIPを一括保存し、freee・マネーフォワード・弥生会計向けのCSVまで出力する業務効率化ツールです。</p>
+    <div class="cta-note">※ 月10件まで無料でお試し可能 ・ 外部サーバー送信なし（完全ローカル処理）</div>
   </header>
 
   <main>
     <section>
+      <h2>操作画面イメージ</h2>
+      <p>楽天市場の購入履歴ページを開くと画面左上に操作パネルが表示され、宛名の設定・期間指定・検索・対象注文の選択・会計ソフト用CSV出力までワンクリックで行えます。</p>
+      <img class="screenshot-img" src="./images/screenshot_1_panel.jpg" alt="楽天領収書一括ダウンローダーの操作画面" />
+    </section>
+
+    <section>
+      <h2>かんたん3ステップの使い方</h2>
+      <div class="grid">
+        <div class="box">
+          <span class="step-badge">STEP 1</span>
+          <h3>購入履歴を開く</h3>
+          <p>楽天会員にログインして購入履歴ページを開くと、操作パネルが自動で表示されます（ドラッグ移動対応）。</p>
+        </div>
+        <div class="box">
+          <span class="step-badge">STEP 2</span>
+          <h3>宛名設定＆スキャン</h3>
+          <p>未発行の注文に入力したい宛名を設定し、期間を選んでスキャンすると一覧と合計金額が表示されます。</p>
+        </div>
+        <div class="box">
+          <span class="step-badge">STEP 3</span>
+          <h3>公式PDF / ZIP / CSV を一括保存</h3>
+          <p>ボタンを押すだけで注文詳細の「発行する」を自動実行し、自動リネーム済みの領収書PDFと会計CSVを保存します。</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
       <h2>主な機能</h2>
       <div class="grid">
         <div class="box">
-          <h3>楽天公式領収書をPDF一括保存</h3>
-          <p>期間指定やチェックボックスで選んだ注文の注文詳細から「発行する」を自動実行し、公式の領収書PDFを一括ダウンロードします（宛名自動入力にも対応）。</p>
+          <h3>宛名自動入力＆楽天公式PDF一括保存</h3>
+          <p>注文詳細内の「領収書・請求書」セクションに宛名を自動入力して発行を実行。ZIPまとめ保存にも対応しています。</p>
         </div>
         <div class="box">
-          <h3>経理ソフト向け自動リネーム</h3>
-          <p>「20261117_5100円_Rakuten_注文番号.pdf」のように日付・金額・注文番号で自動整形。年/月別フォルダ分けや変数カスタマイズにも対応しています。</p>
+          <h3>freee・マネーフォワード・弥生CSV出力</h3>
+          <p>標準一覧に加え、主要3大会計ソフトのインポート形式に合わせたBOM付きCSVを出力。確定申告の記帳作業を大幅に短縮します。</p>
         </div>
         <div class="box">
-          <h3>注文一覧CSV出力＆重複スキップ</h3>
-          <p>ダウンロードした全件の注文日・注文番号・金額・商品名をまとめたUTF-8（BOM付き）CSVを同時出力。取得済み注文のスキップ機能も搭載しています。</p>
+          <h3>自動リネーム・月別フォルダ・重複スキップ</h3>
+          <p>「20261119_5100円_Rakuten_注文番号.pdf」へ自動整形。プリセットで年/月別フォルダ分けや取得済みスキップも簡単です。</p>
         </div>
       </div>
     </section>
@@ -164,16 +231,26 @@
     <section>
       <h2>料金プラン</h2>
       <div class="grid">
-        <div class="box">
+        <div class="box price-card">
           <h3>無料プラン</h3>
           <div class="price">0円</div>
-          <p>月10件までPDF一括保存が可能（毎月自動リセット）。まずは動作をお試しいただけます。</p>
+          <p>月10件までPDF・ZIP一括保存が可能（毎月自動リセット）。まずはご自身の環境で動作をお試しいただけます。</p>
         </div>
-        <div class="box">
+        <div class="box price-card pro">
           <h3>Proプラン（買い切り / 月額）</h3>
           <div class="price">2,980円（買い切り） / 月額490円</div>
-          <p>PDF一括保存が無制限になり、注文一覧CSVの同時出力機能もすべてご利用いただけます。</p>
+          <p>PDF・ZIP一括保存が無制限になり、freee / マネーフォワード / 弥生会計向けCSV出力もすべてご利用いただけます。</p>
         </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sibling-banner">
+        <div>
+          <strong style="color:#92400e; font-size:15.5px;">Amazonもお使いですか？</strong>
+          <div style="font-size:13.5px; color:#475569;">適格請求書（インボイス）原本PDF優先取得に対応した「Amazon領収書一括ダウンローダー」も公開中です。</div>
+        </div>
+        <a class="sibling-btn" href="https://fk7ryu.github.io/amazon-invoice-pro-jp/">Amazon版を見る →</a>
       </div>
     </section>
 
@@ -188,44 +265,34 @@
         <p>はい。詳細設定の「領収書の宛名」を設定しておくと、未発行の注文でも自動で宛名を入力して発行・PDF保存を行います。</p>
       </details>
       <details class="faq-item">
-        <summary>Amazon版もありますか？</summary>
-        <p>はい。<a href="https://fk7ryu.github.io/amazon-invoice-pro-jp/" target="_blank" rel="noopener">Amazon領収書一括ダウンローダー</a> もあわせて公開しています。</p>
+        <summary>出力したCSVはExcelや会計ソフトで文字化けしませんか？</summary>
+        <p>UTF-8（BOM付き）で出力するため、Windows/MacのExcelやfreee・マネーフォワード・弥生会計でそのまま取り込めます。</p>
+      </details>
+      <details class="faq-item">
+        <summary>買い切りプランと月額プランの違いは何ですか？</summary>
+        <p>機能はどちらも同じ（無制限＋会計ソフト別CSV出力）です。確定申告シーズンにまとめて使いたい方は「買い切り 2,980円」、1ヶ月だけ試したい方は「月額 490円」がお得です。</p>
       </details>
     </section>
 
     <section>
       <h2>特定商取引法に基づく表記</h2>
       <table>
-        <tr>
-          <th>サービス名</th>
-          <td>楽天領収書一括ダウンローダー（Google Chrome拡張機能）</td>
-        </tr>
-        <tr>
-          <th>販売価格</th>
-          <td>Proプラン：買い切り 2,980円（税込） / 月額プラン 490円（税込）</td>
-        </tr>
-        <tr>
-          <th>お支払い方法</th>
-          <td>クレジットカード決済（ExtensionPay / Stripe経由）</td>
-        </tr>
-        <tr>
-          <th>引渡時期</th>
-          <td>決済完了後、即時にProプラン機能が有効化されます。</td>
-        </tr>
-        <tr>
-          <th>返品・キャンセル</th>
-          <td>デジタルコンテンツの性質上、決済完了後の返金には原則対応しておりません。月額プランはStripeカスタマーポータルよりいつでも解約可能です。</td>
-        </tr>
-        <tr>
-          <th>運営者・連絡先</th>
-          <td>連絡先メールアドレス: <a href="mailto:fk7ryu@gmail.com">fk7ryu@gmail.com</a><br />※ 所在地・電話番号については、ご請求があった場合遅滞なく開示いたします。</td>
-        </tr>
+        <tr><th>サービス名</th><td>楽天領収書一括ダウンローダー（Google Chrome拡張機能）</td></tr>
+        <tr><th>販売価格</th><td>Proプラン：買い切り 2,980円（税込） / 月額プラン 490円（税込）</td></tr>
+        <tr><th>お支払い方法</th><td>クレジットカード決済（ExtensionPay / Stripe経由）</td></tr>
+        <tr><th>引渡時期</th><td>決済完了後、即時にProプラン機能が有効化されます。</td></tr>
+        <tr><th>返品・キャンセル</th><td>デジタルコンテンツの性質上、決済完了後の返金には原則対応しておりません。月額プランはStripeカスタマーポータルよりいつでも解約可能です。</td></tr>
+        <tr><th>運営者・連絡先</th><td>連絡先メールアドレス: <a href="mailto:fk7ryu@gmail.com">fk7ryu@gmail.com</a><br />※ 所在地・電話番号については、ご請求があった場合遅滞なく開示いたします。</td></tr>
       </table>
     </section>
   </main>
 
   <footer>
-    <p><a href="./privacy.html">プライバシーポリシー</a></p>
+    <p>
+      <a href="./privacy.html">プライバシーポリシー</a> ・
+      <a href="https://fk7ryu.github.io/amazon-invoice-pro-jp/">Amazon版</a> ・
+      <a href="mailto:fk7ryu@gmail.com?subject=%E3%80%90%E6%A5%BD%E5%A4%A9%E9%A0%98%E5%8F%8E%E6%9B%B8%E3%83%84%E3%83%BC%E3%83%AB%E3%80%91%E4%B8%8D%E5%85%B7%E5%90%88%E3%83%BB%E3%81%94%E8%A6%81%E6%9C%9B">不具合報告・ご要望</a>
+    </p>
     <p>&copy; 2026 楽天領収書一括ダウンローダー</p>
   </footer>
 </body>

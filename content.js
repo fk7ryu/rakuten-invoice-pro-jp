@@ -11,8 +11,10 @@
     dateTo: '',
     filenameTemplate: '{date}_{price}_Rakuten_{orderId}',
     receiptName: '',
+    zipOutput: false,
     skipDownloaded: false,
-    exportCsv: true
+    exportCsv: true,
+    csvFormat: 'standard'
   };
 
   function isContextValid() {
@@ -73,6 +75,7 @@
     const upgradeBtn = document.getElementById('rkt-upgrade-inline-btn');
     const csvCheckbox = document.getElementById('rkt-export-csv');
     const csvLabel = document.getElementById('rkt-csv-label');
+    const csvFormatSelect = document.getElementById('rkt-csv-format');
 
     if (!badgeEl) return;
 
@@ -83,7 +86,8 @@
       badgeEl.style.borderColor = '#ceead6';
       if (upgradeBtn) upgradeBtn.style.display = 'none';
       if (csvCheckbox) csvCheckbox.disabled = false;
-      if (csvLabel) csvLabel.textContent = '注文一覧CSVも同時に保存';
+      if (csvFormatSelect) csvFormatSelect.disabled = false;
+      if (csvLabel) csvLabel.textContent = '会計ソフト用CSVも同時に保存';
     } else {
       badgeEl.textContent = `無料枠: 今月あと ${license.remaining}/${license.monthlyLimit}件`;
       badgeEl.style.background = '#fff8e1';
@@ -94,7 +98,8 @@
         csvCheckbox.checked = false;
         csvCheckbox.disabled = true;
       }
-      if (csvLabel) csvLabel.textContent = '注文一覧CSVも同時に保存 (Pro限定)';
+      if (csvFormatSelect) csvFormatSelect.disabled = true;
+      if (csvLabel) csvLabel.textContent = '会計ソフト用CSVも同時に保存 (Pro限定)';
     }
   }
 
@@ -121,7 +126,7 @@
     if (!isContextValid()) return;
     try {
       chrome.storage.local.set({ rktSettings: settings });
-    } catch (_) {}
+    } catch (_) { }
   }
 
   function sanitizeFilePart(str) {
@@ -398,14 +403,26 @@
             <input type="text" id="rkt-filename-tpl" style="width:100%; padding:4px 6px; border:1px solid #ccc; border-radius:4px; font-size:11.5px; margin-bottom:8px;" />
 
             <label style="display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:11.5px; cursor:pointer;">
+              <input type="checkbox" id="rkt-zip-output" />
+              <span>PDF・CSVを1つのZIPにまとめて保存</span>
+            </label>
+
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:11.5px; cursor:pointer;">
               <input type="checkbox" id="rkt-skip-downloaded" />
               <span>取得済みの注文をスキップ (<span id="rkt-history-count">${downloadedOrderIds.length}</span>件)</span>
             </label>
 
-            <label style="display:flex; align-items:center; gap:6px; margin-bottom:6px; font-size:11.5px; cursor:pointer;">
+            <label style="display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:11.5px; cursor:pointer;">
               <input type="checkbox" id="rkt-export-csv" />
-              <span id="rkt-csv-label">注文一覧CSVも同時に保存</span>
+              <span id="rkt-csv-label">会計ソフト用CSVも同時に保存</span>
             </label>
+
+            <select id="rkt-csv-format" style="width:100%; padding:4px; border:1px solid #ccc; border-radius:4px; font-size:11px; margin-bottom:8px;">
+              <option value="standard">標準一覧（Excel確認用）</option>
+              <option value="freee">freee会計 インポート形式</option>
+              <option value="mf">マネーフォワード クラウド仕訳形式</option>
+              <option value="yayoi">弥生会計 仕訳インポート形式</option>
+            </select>
 
             <button id="rkt-clear-history-btn" type="button" style="
               background:#fff; border:1px solid #ccc; border-radius:4px; padding:3px 8px; font-size:11px; color:#555; cursor:pointer;
@@ -465,8 +482,10 @@
     document.getElementById('rkt-date-to').value = settings.dateTo;
     document.getElementById('rkt-receipt-name').value = settings.receiptName || '';
     document.getElementById('rkt-filename-tpl').value = settings.filenameTemplate;
+    document.getElementById('rkt-zip-output').checked = Boolean(settings.zipOutput);
     document.getElementById('rkt-skip-downloaded').checked = settings.skipDownloaded;
     document.getElementById('rkt-export-csv').checked = settings.exportCsv;
+    document.getElementById('rkt-csv-format').value = settings.csvFormat || 'standard';
 
     const presetEl = document.getElementById('rkt-filename-preset');
     const tplEl = document.getElementById('rkt-filename-tpl');
@@ -482,8 +501,10 @@
         dateTo: document.getElementById('rkt-date-to').value,
         receiptName: document.getElementById('rkt-receipt-name').value.trim(),
         filenameTemplate: tplEl.value.trim() || DEFAULT_SETTINGS.filenameTemplate,
+        zipOutput: document.getElementById('rkt-zip-output').checked,
         skipDownloaded: document.getElementById('rkt-skip-downloaded').checked,
-        exportCsv: document.getElementById('rkt-export-csv').checked
+        exportCsv: document.getElementById('rkt-export-csv').checked,
+        csvFormat: document.getElementById('rkt-csv-format').value
       });
     };
 
@@ -505,8 +526,10 @@
       'rkt-date-to',
       'rkt-receipt-name',
       'rkt-filename-tpl',
+      'rkt-zip-output',
       'rkt-skip-downloaded',
-      'rkt-export-csv'
+      'rkt-export-csv',
+      'rkt-csv-format'
     ].forEach((id) => {
       document.getElementById(id).addEventListener('change', syncSettings);
     });
@@ -891,11 +914,13 @@
     updateStatus(`${targetItems.length}件のPDF生成を開始します...`, 0);
 
     const exportCsv = license.isPaid && document.getElementById('rkt-export-csv').checked;
+    const csvFormat = document.getElementById('rkt-csv-format').value || 'standard';
+    const zipOutput = document.getElementById('rkt-zip-output').checked;
     const receiptName = document.getElementById('rkt-receipt-name').value.trim();
     try {
       chrome.runtime.sendMessage({
         action: 'START_DOWNLOAD',
-        payload: { items: targetItems, exportCsv, receiptName }
+        payload: { items: targetItems, exportCsv, receiptName, csvFormat, zipOutput }
       });
     } catch (_) {
       setRunningState(false);
@@ -911,7 +936,7 @@
       try {
         chrome.storage.local.remove('rktScanState');
         chrome.runtime.sendMessage({ action: 'CANCEL_DOWNLOAD' });
-      } catch (_) {}
+      } catch (_) { }
     }
   }
 

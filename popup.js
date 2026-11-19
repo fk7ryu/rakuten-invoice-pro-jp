@@ -9,7 +9,7 @@ function refreshLicenseUI() {
     if (!res) return;
 
     if (res.isPaid) {
-      planStatusEl.textContent = '✨ Proプラン（無制限＋CSV出力有効）';
+      planStatusEl.textContent = '✨ Proプラン（無制限＋会計CSV有効）';
       planStatusEl.classList.add('pro');
       upgradeBtn.style.display = 'none';
       restoreBtn.style.display = 'none';
@@ -26,6 +26,10 @@ function refreshLicenseUI() {
 
 document.getElementById('open-orders').addEventListener('click', () => {
   chrome.tabs.create({ url: 'https://order.my.rakuten.co.jp/' });
+});
+
+document.getElementById('open-guide').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('welcome.html') });
 });
 
 upgradeBtn.addEventListener('click', () => {
